@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel onboarding-panel">
+  <div class="onboarding-header">
+    <p class="onboarding-kicker">Personalized employer search</p>
+    <h1>Let's narrow down your search</h1>
+    <p class="meta">Answer one short question at a time to build your filter.</p>
+  </div>
+
+  <div class="progress-card" aria-label="Quiz progress">
+    <div class="progress-copy">
+      <p class="progress-label">Step {{ step }} of 4</p>
+      <p class="progress-help">
+        {% if step == 1 %}
+          Start with your target industry.
+        {% elif step == 2 %}
+          Pick a state you want to focus on.
+        {% elif step == 3 %}
+          Add a city if you want a narrower search.
+        {% elif step == 4 %}
+          Choose the employer size that fits your goals.
+        {% endif %}
+      </p>
+    </div>
+    <div class="progress-track" aria-hidden="true">
+      <span class="progress-fill step-{{ step }}"></span>
+    </div>
+  </div>
+
+  {% if step == 1 %}
+  <form method="get" action="{{ url_for('quiz') }}" class="quiz-form">
+    <input type="hidden" name="step" value="2" />
+
+    <div class="quiz-step">
+      <label for="industry" class="quiz-label">What industry are you targeting?</label>
+      <p class="quiz-hint">
+        Choose the industry that best matches the type of role you want after graduation.
+      </p>
+      <select name="industry" id="industry" class="quiz-control">
+        {% for opt in industries %}
+        <option value="{{ opt }}" {% if opt == answers.industry %}selected{% endif %}>
+          {{ opt }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="quiz-actions">
+      <button type="submit" class="primary-button">Next</button>
+    </div>
+  </form>
+
+{% elif step == 2 %}
+<form method="get" action="{{ url_for('quiz') }}">
+  <input type="hidden" name="step" value="3" />
+  <input type="hidden" name="industry" value="{{ answers.industry }}" />
+
+  <fieldset class="state-grid">
+    <legend>Which states are you open to?</legend>
+    {% for s in states %}
+    <label class="state-check">
+      <input
+        type="checkbox"
+        name="state"
+        value="{{ s.code }}"
+        {% if s.code in answers.state %}checked{% endif %}
+      />
+      {{ s.name }}
+    </label>
+    {% endfor %}
+  </fieldset>
+
+  <button type="submit" class="primary-button">Next</button>
+</form>
+
+  {% elif step == 3 %}
+
+  <form method="get" action="{{ url_for('quiz') }}" class="quiz-form">
+    <input type="hidden" name="step" value="4" />
+    <input type="hidden" name="industry" value="{{ answers.industry }}" />
+    {% for s in answers.state %}
+    <input type="hidden" name="state" value="{{ s }}" />
+    {% endfor %}
+
+    <div class="quiz-pill-row">
+      <span class="selection-pill">Industry: {{ answers.industry or "Not chosen" }}</span>
+      <span class="selection-pill">
+        State:
+        {% if answers.state %}
+          {% for s in answers.state %}{{ state_name(s) }}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% else %}
+          Any state
+        {% endif %}
+      </span>
+    </div>
+
+    <div class="quiz-step">
+      <p class="quiz-label">City (optional)</p>
+      <p class="quiz-hint">
+        City options are limited to locations in your selected states with
+        employers from your chosen industry. Check one or more cities to
+        narrow your results, or leave everything unchecked to include all
+        cities in your selected states.
+      </p>
+      {% if cities %}
+      <div class="city-groups">
+        {% for state_group, group_cities in cities | groupby('state_name') %}
+        <div class="city-group">
+          <p class="city-group-label">{{ state_group }}</p>
+          <div class="city-group-grid">
+            {% for c in group_cities %}
+            <label class="state-check">
+              <input
+                type="checkbox"
+                name="city"
+                value="{{ c.city }}"
+                {% if c.city in answers.city %}checked{% endif %}
+              />
+              {{ c.city.title() }}
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="quiz-hint quiz-hint--empty">No specific cities found for your selected filters. All locations will be included.</p>
+      {% endif %}
+    </div>
+
+    <div class="quiz-actions">
+      <button type="submit" class="primary-button">Next</button>
+    </div>
+  </form>
+
+  {% elif step == 4 %}
+
+  <form method="get" action="{{ url_for('dashboard') }}" class="quiz-form">
+    <input type="hidden" name="industry" value="{{ answers.industry }}" />
+    {% for s in answers.state %}
+    <input type="hidden" name="state" value="{{ s }}" />
+    {% endfor %}
+    {% for c in answers.city %}
+    <input type="hidden" name="city" value="{{ c }}" />
+    {% endfor %}
+
+    <div class="quiz-pill-row">
+      <span class="selection-pill">Industry: {{ answers.industry or "Not chosen" }}</span>
+      <span class="selection-pill">
+        State:
+        {% if answers.state %}
+          {% for s in answers.state %}{{ state_name(s) }}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% else %}
+          Any state
+        {% endif %}
+      </span>
+      <span class="selection-pill">
+        City:
+        {% if answers.city %}
+          {% for c in answers.city %}{{ c.title() }}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% else %}
+          Any city
+        {% endif %}
+      </span>
+    </div>
+
+    <fieldset class="quiz-step radio-group">
+      <legend class="quiz-label">What size employer are you looking for?</legend>
+      <p class="quiz-hint">
+        Size is based on <strong>total H-1B approvals</strong> — the number
+        of H-1B petitions USCIS has approved for that employer across all
+        petition types (new hires, renewals, employer transfers, and
+        amendments). A higher count means the employer has sponsored more
+        international workers over time and is more experienced with the
+        process. Large employers (500+) are typically major corporations or
+        consulting firms that file hundreds of petitions a year; small
+        employers (&lt;50) are niche or occasional sponsors.
+      </p>
+      {% for value, label in [
+        ('small', 'Small (< 50 approvals)'),
+        ('mid', 'Mid (50 - 500)'),
+        ('large', 'Large (500+)'),
+        ('any', 'Any'),
+      ] %}
+      <label class="radio-card">
+        <input
+          type="radio"
+          name="size"
+          value="{{ value }}"
+          {% if value == answers.size or (not answers.size and value == "any") %}checked{% endif %}
+        />
+        <span>{{ label }}</span>
+      </label>
+      {% endfor %}
+    </fieldset>
+
+    <div class="quiz-actions">
+      <button type="submit" class="primary-button">Show my matches</button>
+    </div>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

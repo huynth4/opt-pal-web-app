@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero-card">
+  <div class="hero-logo" aria-hidden="true">
+    <span class="hero-monogram">OP</span>
+  </div>
+
+  <p class="hero-eyebrow">H-1B employer explorer tool</p>
+  <h1 class="hero-title">OPT Pal</h1>
+  <p class="hero-tagline">
+    Your shortcut to H-1B-friendly employers, powered by public USCIS data.
+  </p>
+
+  <p class="hero-lede">
+    OPT Pal turns the official USCIS H-1B Employer Data Hub into a quick,
+    personalized search. Tell us your industry, location, and the size of
+    company you want — we'll surface employers that have actually sponsored
+    H-1B petition in 2026!
+  </p>
+
+  <div class="hero-cta">
+    <a class="primary-button" href="{{ url_for('quiz', step=1) }}">
+      Find employers
+    </a>
+    <a class="secondary-link" href="#how-it-works">How it works</a>
+  </div>
+</section>
+
+<section class="panel info-panel" id="how-it-works">
+  <h2>How it works</h2>
+  <ol class="steps-list">
+    <li>
+      <strong>Take the 4-question quiz.</strong>
+      Pick your target industry, the states you'd consider, an optional city,
+      and the company size you're aiming for.
+    </li>
+    <li>
+      <strong>See your matched employers.</strong>
+      Your dashboard summarizes <strong>total approvals</strong> — the count
+      of H-1B petitions that USCIS approved on that employer's behalf for
+      foreign workers across all petition types (new hires, renewals,
+      employer transfers, and amendments). Larger companies that sponsor many
+      international workers every year will have high approval totals; small
+      or occasional sponsors will have lower ones.
+    </li>
+    <li>
+      <strong>Refine and explore.</strong>
+      Adjust your filters at any time to compare industries or regions and find
+      the employers that fit your goals.
+    </li>
+  </ol>
+</section>
+
+<section class="panel info-panel">
+  <h2>Why OPT Pal?</h2>
+  <p>
+    Every year USCIS publishes a list of every employer who sponsored H-1B
+    petitions. The raw dataset is huge, the columns are confusing, and pivoting
+    it in a spreadsheet takes time you probably don't have during recruiting
+    season. OPT Pal does the cleanup and lets you slice the data the way an
+    international student or new grad actually thinks about it.
+  </p>
+  <p class="meta">
+    Note: Approval counts reflect historical USCIS data and are not legal
+    advice or a guarantee that an employer will sponsor in the future.
+  </p>
+</section>
+{% endblock %}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{{ title }}{% endblock %} — OPT Pal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="{{ url_for('home') }}">OPT Pal</a>
+        <span class="tagline">H-1B employer explorer (USCIS data)</span>
+    </header>
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="site-footer">
+        <p>
+            Built by Thu Huynh for CSC 121 Final Project. Data source:
+            <a
+              href="https://www.uscis.gov/tools/reports-and-studies/h-1b-employer-data-hub"
+            >
+              USCIS H-1B Employer Data Hub
+            </a>
+            .
+        </p>
+    </footer>
+</body>
+</html>

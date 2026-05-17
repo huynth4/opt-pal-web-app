@@ -1,0 +1,326 @@
+{% extends "base.html" %} {% block content %}
+<section class="panel">
+  <a href="{{ url_for('quiz', step=1) }}">&larr; Refine search</a>
+
+  <h1>Your matches</h1>
+
+  <div class="stat-strip">
+    <div>
+      <strong>{{ stats.employers }}</strong>
+      employers
+    </div>
+    <div>
+      <strong>{{ "{:,}".format(stats.approvals) }}</strong>
+      total approvals
+    </div>
+    <div class="quiz-pill-row">
+      <span class="selection-pill">Industry: {{ filters.industry or "Any" }}</span>
+      <span class="selection-pill">
+        State:
+        {% if filters.state %}
+          {% for s in filters.state %}{{ state_name(s) }}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% else %}
+          Any
+        {% endif %}
+      </span>
+      <span class="selection-pill">
+        City:
+        {% if filters.city %}
+          {% for c in filters.city %}{{ c.title() }}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% else %}
+          Any
+        {% endif %}
+      </span>
+      <span class="selection-pill">Size: {{ filters.size or "Any" }}</span>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <canvas id="top-employers-chart" height="140"></canvas>
+  </div>
+  <div class="chart-card">
+    <canvas id="by-state-chart" height="140"></canvas>
+  </div>
+  <div class="globe-card">
+    <div class="globe-header">
+      <div>
+        <h2>Approvals by state — 3D view</h2>
+        <p class="meta">Taller, brighter states have more total approvals.</p>
+      </div>
+      <p id="globe-caption" class="meta">Hover a state to see its approvals.</p>
+    </div>
+    <div id="globe"></div>
+  </div>
+
+  <script id="top-data" type="application/json">
+    {{ top|tojson }}
+  </script>
+  <script id="state-data" type="application/json">
+    {{ by_state|tojson }}
+  </script>
+</section>
+
+<section class="panel">
+  <h2>All matches ({{ rows|length }} shown)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Employer</th>
+        <th>Industry</th>
+        <th>City</th>
+        <th>State</th>
+        <th>Approvals</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.employer_name }}</td>
+        <td>{{ r.industry }}</td>
+        <td>{{ r.city }}</td>
+        <td>{{ r.state_name }}</td>
+        <td>{{ r.total_approvals }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script src="https://unpkg.com/globe.gl"></script>
+<script src="https://unpkg.com/d3-fetch"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const topRows = JSON.parse(document.getElementById("top-data").textContent)
+  const byState = JSON.parse(document.getElementById("state-data").textContent)
+
+  const BRAND_COLOR = "#0f766e"
+  const BRAND_BORDER = "#0f3d2e"
+  const GRID_COLOR = "rgba(15, 23, 42, 0.08)"
+  const TICK_COLOR = "#334155"
+
+  const baseOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      title: {
+        display: true,
+        color: "#0f172a",
+        font: { size: 16, weight: "600" },
+        padding: { top: 4, bottom: 12 },
+      },
+      tooltip: {
+        backgroundColor: "#0f172a",
+        titleColor: "#f8fafc",
+        bodyColor: "#e2e8f0",
+        padding: 10,
+        cornerRadius: 6,
+      },
+    },
+    scales: {
+      x: {
+        ticks: {
+          color: TICK_COLOR,
+          autoSkip: false,
+          maxRotation: 45,
+          minRotation: 45,
+        },
+        grid: { display: false },
+      },
+      y: {
+        beginAtZero: true,
+        ticks: { color: TICK_COLOR },
+        grid: { color: GRID_COLOR },
+      },
+    },
+  }
+
+  new Chart(document.getElementById("top-employers-chart"), {
+    type: "bar",
+    data: {
+      labels: topRows.map((r) => r.employer_name),
+      datasets: [
+        {
+          label: "Total approvals",
+          data: topRows.map((r) => r.approvals),
+          backgroundColor: BRAND_COLOR,
+          borderColor: BRAND_BORDER,
+          borderWidth: 1,
+          borderRadius: 6,
+          maxBarThickness: 42,
+        },
+      ],
+    },
+    options: {
+      ...baseOptions,
+      plugins: {
+        ...baseOptions.plugins,
+        title: { ...baseOptions.plugins.title, text: "Top 10 employers" },
+      },
+    },
+  })
+
+  new Chart(document.getElementById("by-state-chart"), {
+    type: "bar",
+    data: {
+      labels: byState.map((r) => r.state_name),
+      datasets: [
+        {
+          label: "Total approvals",
+          data: byState.map((r) => r.approvals),
+          backgroundColor: BRAND_COLOR,
+          borderColor: BRAND_BORDER,
+          borderWidth: 1,
+          borderRadius: 6,
+          maxBarThickness: 42,
+        },
+      ],
+    },
+    options: {
+      ...baseOptions,
+      plugins: {
+        ...baseOptions.plugins,
+        title: { ...baseOptions.plugins.title, text: "Approvals by state" },
+      },
+      scales: {
+        ...baseOptions.scales,
+        x: {
+          ...baseOptions.scales.x,
+          ticks: {
+            ...baseOptions.scales.x.ticks,
+            maxRotation: 45,
+            minRotation: 45,
+            autoSkip: false,
+          },
+        },
+      },
+    },
+  })
+  const stateApprovals = Object.fromEntries(
+    byState.map((r) => [r.state_name, r.approvals]),
+  )
+
+  const stateName = (feature) => feature.properties?.name || feature.id
+  const approvalsFor = (feature) => stateApprovals[stateName(feature)] || 0
+  const hasApprovals = (feature) => approvalsFor(feature) > 0
+  const formatNumber = (num) => new Intl.NumberFormat().format(num)
+  const featureCenter = (feature) => {
+    const points = []
+    const collectPoints = (coords) => {
+      if (typeof coords[0] === "number") {
+        points.push(coords)
+        return
+      }
+
+      coords.forEach(collectPoints)
+    }
+
+    collectPoints(feature.geometry.coordinates)
+    const totals = points.reduce(
+      (sum, point) => ({
+        lng: sum.lng + point[0],
+        lat: sum.lat + point[1],
+      }),
+      { lat: 0, lng: 0 },
+    )
+
+    return {
+      lat: totals.lat / points.length,
+      lng: totals.lng / points.length,
+    }
+  }
+
+d3.json(
+  "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json",
+).then((states) => {
+    const maxApprovals = Math.max(...Object.values(stateApprovals), 1)
+    const scale = (feature) => approvalsFor(feature) / maxApprovals
+
+    const globeEl = document.getElementById("globe")
+    const globe = new Globe(globeEl)
+    .width(globeEl.clientWidth)
+    .height(420)
+    .globeImageUrl("//unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
+    .backgroundColor("rgba(0,0,0,0)")
+    .showAtmosphere(false)
+    .polygonsData(states.features)
+      .polygonAltitude((feature) => {
+        return hasApprovals(feature) ? 0.006 + 0.035 * scale(feature) : 0.001
+      })
+      .polygonCapColor((feature) => {
+        if (!hasApprovals(feature)) {
+          return "rgba(148, 163, 184, 0.08)"
+        }
+
+        const opacity = 0.2 + 0.65 * scale(feature)
+        return `rgba(45, 212, 191, ${opacity})`
+      })
+      .polygonSideColor((feature) =>
+        hasApprovals(feature) ? "rgba(45, 212, 191, 0.25)" : "rgba(148, 163, 184, 0.04)"
+      )
+    .polygonStrokeColor((feature) =>
+      hasApprovals(feature) ? "rgba(255,255,255,0.35)" : "#0f3d2e"
+    )
+    .onPolygonHover((feature) => {
+      const caption = document.getElementById("globe-caption")
+      if (!feature || !hasApprovals(feature)) {
+        caption.textContent = "Hover a state to see its approvals."
+        return
+      }
+
+      caption.textContent = `${stateName(feature)}: ${formatNumber(approvalsFor(feature))} total approvals`
+    })
+
+    globe.pointOfView({ lat: 38, lng: -97, altitude: 2.0 }, 0)
+
+    const GREENVILLE = { lat: 34.8526, lng: -82.394 }
+    const featuresByName = Object.fromEntries(
+      states.features.map((feature) => [stateName(feature), feature]),
+    )
+    const topStates = byState
+      .filter((row) => row.approvals > 0 && featuresByName[row.state_name])
+      .slice(0, 5)
+      .map((row) => ({
+        ...featureCenter(featuresByName[row.state_name]),
+        text: `${row.state_name}: ${formatNumber(row.approvals)}`,
+        approvals: row.approvals,
+        kind: "state",
+      }))
+    const arcs = topStates.map((state) => ({
+      startLat: GREENVILLE.lat,
+      startLng: GREENVILLE.lng,
+      endLat: state.lat,
+      endLng: state.lng,
+      approvals: state.approvals,
+    }))
+    const labels = [
+      {
+        ...GREENVILLE,
+        text: "Greenville",
+        kind: "start",
+      },
+      ...topStates,
+    ]
+
+    globe
+      .arcsData(arcs)
+      .arcColor(() => "rgba(251, 191, 36, 0.55)")
+      .arcAltitude(0.12)
+      .arcStroke(0.5)
+      .arcDashLength(0.6)
+      .arcDashGap(0.4)
+      .arcDashAnimateTime(4000)
+      .labelsData(labels)
+      .labelLat((label) => label.lat)
+      .labelLng((label) => label.lng)
+      .labelText((label) => label.text)
+      .labelSize((label) => (label.kind === "start" ? 0.5 : 0.38))
+      .labelDotRadius((label) => (label.kind === "start" ? 0.28 : 0.18))
+      .labelAltitude((label) => (label.kind === "start" ? 0.08 : 0.06))
+      .labelColor((label) =>
+        label.kind === "start" ? "rgba(251, 191, 36, 1)" : "rgba(248, 250, 252, 0.95)"
+      )
+      .labelResolution(2)
+})
+</script>
+{% endblock %}
